@@ -8,6 +8,7 @@ struct proc pool[NPROC];                    // Array of all process control bloc
 char kstack[NPROC][PAGE_SIZE];              // Kernel stacks (one per process)
 __attribute__((aligned(4096))) char ustack[NPROC][PAGE_SIZE];      // User stacks
 __attribute__((aligned(4096))) char trapframe[NPROC][PAGE_SIZE];   // Trapframes (saved user registers)
+// This is an array that holds all 16 (defined in proc.h) possible processes. Process 0 uses task_info_pool[0], process 1 uses task_info_pool[1], etc.
 TaskInfo task_info_pool[NPROC];             // LAB1: Task info storage for each process
 
 extern char boot_stack_top[];
@@ -60,7 +61,7 @@ void proc_init(void)
 		 * LAB1: Initialize task info pointer and status
 		 * Each process gets its own TaskInfo structure from the pool
 		 */
-		p->info = &task_info_pool[process_index];
+		p->info = &task_info_pool[process_index]; // Link this process to TaskInfo
 		p->info->status = UnInit;  // Process not yet initialized
 	}
 	
