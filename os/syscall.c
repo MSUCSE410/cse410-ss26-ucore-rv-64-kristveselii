@@ -90,23 +90,32 @@ uint64 sys_gettimeofday(TimeVal *val, int _tz)
  */
 int sys_task_info(TaskInfo *ti)
 {
-	struct proc *p = curr_proc();
-	
+	// ----------------------------------------------------
+	struct proc *p = curr_proc(); // Get the current process
+	// ----------------------------------------------------
+
+	// ----------------------------------------------------
 	// Copy current task status
 	ti->status = p->info->status;
-	
+	// ----------------------------------------------------
+
+	// ----------------------------------------------------
 	// Copy all syscall counters
 	// Calculate array size to ensure we copy all elements
 	int syscall_array_size = sizeof(p->info->syscall_times) / sizeof(p->info->syscall_times[0]);
 	for (int i = 0; i < syscall_array_size; i++) {
 		ti->syscall_times[i] = p->info->syscall_times[i];
 	}
+	// ----------------------------------------------------
 	
 	// Calculate running time in milliseconds from CPU cycles
 	// Formula: (cycles % CPU_FREQ) * 1000 / CPU_FREQ
-	// This gives milliseconds for the current second
+	// This gives milliseconds for the current seconds
+	// Timer resets in ms
+	// -------------------------------------------------
 	uint64 cycle = get_cycle();
 	ti->time = (cycle % CPU_FREQ) * 1000 / CPU_FREQ;
+	// -------------------------------------------------
 	
 	return 0;
 }
@@ -141,9 +150,13 @@ void syscall()
 	 * Track how many times each syscall has been called by this process.
 	 * Only increment if syscall_id is valid (within array bounds).
 	 */
+	// Every time ANY syscall happens, check if the ID is valid (between 0 & 500) 
+	// and increment the counter for that specific syscall.
+	// --------------------------------------------------------
 	if (syscall_id > 0 && syscall_id < MAX_SYSCALL_NUM) {
 		p->info->syscall_times[syscall_id]++;
 	}
+	// --------------------------------------------------------
 	
 	// Dispatch to appropriate syscall handler
 	int ret;  // Return value
