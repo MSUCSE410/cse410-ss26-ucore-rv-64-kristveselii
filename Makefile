@@ -76,7 +76,7 @@ $(HEADER_DEP): $(BUILDDIR)/$K/%.d : $K/%.c
         sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
         rm -f $@.$$$$
 
-INIT_PROC ?= usershell
+INIT_PROC ?= ch5_usertest
 
 os/link_app.o: $K/link_app.S
 os/link_app.S: scripts/pack.py .FORCE
@@ -126,4 +126,3 @@ user:
 	make -C user CHAPTER=$(CHAPTER) BASE=$(BASE)
 
 test: user run
-
