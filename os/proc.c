@@ -142,19 +142,38 @@ found:
 	p->next_mutex_id = 0;
 	p->next_semaphore_id = 0;
 	p->next_condvar_id = 0;
-	// LAB5: (1) you may initialize your new proc variables here
 
-	// initialize deadlock detection data
+	/*
+	 * Project 5: Initialize deadlock detection state (Step 1)
+	 *
+	 * Every new process starts with deadlock detection disabled and all
+	 * detection matrices zeroed out. Detection is opt-in — user programs
+	 * must call sys_enable_deadlock_detect(1) to activate it. This avoids
+	 * overhead for programs that don't need deadlock checking.
+	 *
+	 * All three matrices (available, allocation, request) are zeroed for
+	 * both mutexes and semaphores. They are populated incrementally as the
+	 * process creates mutexes/semaphores and threads acquire/release them.
+	 */
+
+	// Start with detection disabled; user enables it explicitly via syscall.
 	p->deadlock_detect_enabled = 0;
 
-	memset(p->mutex_available, 0, sizeof(p->mutex_available)); // initially all mutexes are available
-	memset(p->mutex_allocation, 0, sizeof(p->mutex_allocation)); // initially no thread holds any mutex
-	memset(p->mutex_request, 0, sizeof(p->mutex_request)); // initially no thread requests any mutex
-	
-	memset(p->semaphore_available, 0, sizeof(p->semaphore_available)); // initially all semaphores are available
-	memset(p->semaphore_allocation, 0, sizeof(p->semaphore_allocation)); // initially no thread holds any semaphore
-	memset(p->semaphore_request, 0, sizeof(p->semaphore_request)); // initially no thread requests any semaphore
-	return p; 
+	// Zero out all mutex detection matrices.
+	// available[] will be set to 1 per mutex when each mutex is created.
+	// allocation[][] and request[][] stay 0 until threads acquire locks.
+	memset(p->mutex_available, 0, sizeof(p->mutex_available));
+	memset(p->mutex_allocation, 0, sizeof(p->mutex_allocation));
+	memset(p->mutex_request, 0, sizeof(p->mutex_request));
+
+	// Zero out all semaphore detection matrices.
+	// available[] will be set to res_count per semaphore when each is created.
+	// allocation[][] and request[][] stay 0 until threads acquire resources.
+	memset(p->semaphore_available, 0, sizeof(p->semaphore_available));
+	memset(p->semaphore_allocation, 0, sizeof(p->semaphore_allocation));
+	memset(p->semaphore_request, 0, sizeof(p->semaphore_request));
+
+	return p;
 }
 
 inline uint64 get_thread_trapframe_va(int tid)

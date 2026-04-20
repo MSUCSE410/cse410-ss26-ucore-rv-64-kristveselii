@@ -63,21 +63,68 @@ struct proc {
 	struct mutex mutex_pool[LOCK_POOL_SIZE];
 	struct semaphore semaphore_pool[LOCK_POOL_SIZE];
 	struct condvar condvar_pool[LOCK_POOL_SIZE];
-	// LAB5: (1) Define your variables for deadlock detect here.
-	//			 You may need a flag to record if detection enabled,
-	//       and some arrays for detection algorithm.
 
-	int deadlock_detect_enabled; // flag to indicate if deadlock detection is enabled
+	/*
+	 * Project 5: Deadlock Detection State (Step 1)
+	 *
+	 * Each process maintains its own deadlock detection state independently.
+	 * This is because locks/semaphores are per-process resources — threads
+	 * within a process share the same mutex_pool and semaphore_pool, so
+	 * deadlock detection only needs to consider threads within one process.
+	 *
+	 * The detection algorithm used is the Banker's Algorithm (resource
+	 * allocation graph / work-finish method):
+	 *   1. Initialize work[] = available[]
+	 *   2. Find a thread i where request[i] <= work (can safely finish)
+	 *   3. If found, simulate releasing its resources: work += allocation[i]
+	 *   4. Repeat until no more threads can finish
+	 *   5. If any thread is still unfinished, a deadlock exists
+	 *
+	 * Three matrices are tracked for both mutexes and semaphores:
+	 *   - available[j]:         how many units of resource j are currently free
+	 *   - allocation[i][j]:     how many units of resource j thread i currently holds
+	 *   - request[i][j]:        how many units of resource j thread i is currently waiting for
+	 *
+	 * For mutexes: values are binary (0 or 1) since a mutex is either held or not.
+	 * For semaphores: values can be > 1 since semaphores track a count of resources.
+	 */
 
-	// mutex deadlock detect data
-	int mutex_available[LOCK_POOL_SIZE]; // 1 if mutex is available, 0 if not
-	int mutex_allocation[NTHREAD][LOCK_POOL_SIZE]; // allocation matrix, 1 if thread holds the mutex, 0 if not
-	int mutex_request[NTHREAD][LOCK_POOL_SIZE]; // request matrix, 1 if thread is requesting the mutex, 0 if not
+	// Flag to enable or disable deadlock detection for this process.
+	// Set via sys_enable_deadlock_detect(). When 0, lock/semaphore
+	// operations proceed without running the detection algorithm.
+	int deadlock_detect_enabled;
 
-	// semaphore deadlock detect data
-	int semaphore_available[LOCK_POOL_SIZE]; // count of available resources for each semaphore
-	int semaphore_allocation[NTHREAD][LOCK_POOL_SIZE]; // allocation matrix, count of resources allocated to each thread for each semaphore
-	int semaphore_request[NTHREAD][LOCK_POOL_SIZE]; // request matrix, 1 if thread is requesting the semaphore, 0 if not
+	// --- Mutex deadlock detection matrices ---
+	// available[j] = 1 if mutex j is currently unlocked (not held by any thread), 0 if locked.
+	// Initialized to 1 when a mutex is created (it starts unlocked).
+	int mutex_available[LOCK_POOL_SIZE];
+
+	// allocation[i][j] = number of times thread i holds mutex j.
+	// Incremented in sys_mutex_lock() after successfully acquiring the lock.
+	// Decremented in sys_mutex_unlock() when the thread releases the lock.
+	int mutex_allocation[NTHREAD][LOCK_POOL_SIZE];
+
+	// request[i][j] = 1 if thread i is currently blocked waiting for mutex j, 0 otherwise.
+	// Set to 1 before running deadlock detection in sys_mutex_lock().
+	// Reset to 0 after either detecting a deadlock (returning early) or
+	// successfully acquiring the lock.
+	int mutex_request[NTHREAD][LOCK_POOL_SIZE];
+
+	// --- Semaphore deadlock detection matrices ---
+	// available[j] = current count of free resources for semaphore j.
+	// Initialized to res_count when the semaphore is created.
+	// Decremented on semaphore_down(), incremented on semaphore_up().
+	int semaphore_available[LOCK_POOL_SIZE];
+
+	// allocation[i][j] = number of semaphore j resources thread i currently holds.
+	// Incremented in sys_semaphore_down() after successfully acquiring a resource.
+	// Decremented in sys_semaphore_up() when the thread releases a resource.
+	int semaphore_allocation[NTHREAD][LOCK_POOL_SIZE];
+
+	// request[i][j] = 1 if thread i is currently trying to acquire semaphore j, 0 otherwise.
+	// Set to 1 before running deadlock detection in sys_semaphore_down().
+	// Reset to 0 after detecting a deadlock or successfully acquiring the resource.
+	int semaphore_request[NTHREAD][LOCK_POOL_SIZE];
 };
 
 int cpuid();
