@@ -158,7 +158,10 @@ uint64 inoderead(struct file *f, uint64 va, uint64 len)
 	return r;
 }
 
-// Copy from kernel to user.
+// PROJECT 4: filestat — fill the user-space Stat structure for sys_fstat.
+// The Stat layout is defined by the user-side header (user/lib/stat.h):
+//   dev (u64), ino (u64), mode (u32), nlink (u32), pad[7] (u64)
+// We build it in kernel space then copyout to the user virtual address.
 int filestat(struct file *f, uint64 addr)
 {
     if (f == 0 || f->type != FD_INODE || f->ip == 0) { // Validate the file pointer and ensure it's an inode file
@@ -167,7 +170,8 @@ int filestat(struct file *f, uint64 addr)
 
     struct proc *p = curr_proc(); // Get the current process to access its page table for copying data back to user space
 
-	// Create a stat structure to hold the file information
+	// PROJECT 4: anonymous struct matching the user-side Stat layout exactly.
+	// Field sizes and ordering must match or the user program reads garbage.
     struct {
         uint64 dev;
         uint64 ino;
@@ -176,18 +180,22 @@ int filestat(struct file *f, uint64 addr)
         uint64 pad[7];
     } st;
 
-	// Fill the stat structure with information from the file's inode
-    st.dev = 0; // Device number is not used in this implementation, so we set it to 0
-    st.ino = f->ip->inum; // Inode number from the file's inode
-    st.mode = (f->ip->type == T_DIR) ? 0x00400000 : 0x00100000; // Set mode based on whether it's a directory or a regular file
-    st.nlink = f->ip->nlink; // Number of links to the file from the inode's nlink field
+	// PROJECT 4: fill each Stat field from the inode.
+    st.dev = 0; // Single-device kernel — device number is always 0.
+    st.ino = f->ip->inum; // Inode number uniquely identifies the file on disk.
+	// PROJECT 4: encode file type in the mode field using the constants
+	// the user program expects: 0x040000 = directory, 0x100000 = regular file.
+    st.mode = (f->ip->type == T_DIR) ? 0x00400000 : 0x00100000;
+	// PROJECT 4: hard link count — tells the user how many names point to this inode.
+    st.nlink = f->ip->nlink;
 
 	// Pad the remaining fields with zeros
     for (int i = 0; i < 7; i++) {
         st.pad[i] = 0;
     }
 
-	// Copy the stat structure back to user space at the provided address
+	// PROJECT 4: copy the completed Stat struct from kernel space into the
+	// user virtual address provided by the syscall argument.
     if (copyout(p->pagetable, addr, (char *)&st, sizeof(st)) < 0) {
         return -1;
     }
@@ -195,7 +203,10 @@ int filestat(struct file *f, uint64 addr)
     return 0;
 }
 
-// Create a new link (also called hard link) to an existing file.
+// PROJECT 4: filelink — create a hard link from 'old' to 'new'.
+// A hard link is simply a second directory entry that maps a new name to the
+// same inode number. Both names refer to identical file data; neither is the
+// "original". The inode's nlink field tracks how many such entries exist.
 int filelink(char *old, char *new)
 {
     struct inode *dp = root_dir(); // Get the root directory inode to perform lookups and modifications
@@ -207,22 +218,28 @@ int filelink(char *old, char *new)
 
     ivalid(ip); // Ensure the inode for the existing file is valid and its data is loaded into memory
 
-	// Create a new directory entry for the new link that points to the same inode as the existing file
+	// PROJECT 4: write a new dirent {new, ip->inum} into the root directory.
+	// dirlink checks that 'new' doesn't already exist (returns -1 if it does),
+	// then finds a free dirent slot (inum==0) and writes the new entry there.
+	// The inode number is shared with 'old' — that's what makes it a hard link.
     if (dirlink(dp, new, ip->inum) < 0) {
         iput(ip);
         iput(dp);
         return -1;
     }
 
-    ip->nlink++; // Increment the link count of the inode since we have created a new link to it
-    iupdate(ip); // Update the inode on disk to reflect the new link count
+    ip->nlink++; // PROJECT 4: one more directory entry now points to this inode.
+    iupdate(ip); // PROJECT 4: flush the new nlink value to disk so it survives reboot.
 
     iput(ip); // Release the reference to the existing file's inode
     iput(dp); // Release the reference to the root directory inode
     return 0;
 }
 
-// Remove a file from the file system.
+// PROJECT 4: fileunlink — remove one hard link (directory entry) for 'path'.
+// If this was the last link (nlink reaches 0), the final iput() call will
+// free the inode and all data blocks via itrunc(). If other links remain,
+// the file data is preserved and accessible through those other names.
 int fileunlink(char *path)
 {
     struct inode *dp = root_dir(); // Get the root directory inode to perform lookups and modifications
@@ -234,18 +251,23 @@ int fileunlink(char *path)
 
     ivalid(ip); // Ensure the inode for the file to be unlinked is valid and its data is loaded into memory
 
-	// Remove the directory entry for the file, effectively unlinking it from the file system
+	// PROJECT 4: remove the directory entry — zeroes the dirent slot in the
+	// root directory so the name no longer maps to any inode. This does NOT
+	// touch the inode itself; the inode still exists until nlink hits 0.
     if (dirunlink(dp, path) < 0) {
         iput(ip);
         iput(dp);
         return -1;
     }
 
-    ip->nlink--; // Decrement the link count of the inode since we have removed one link to it
-    iupdate(ip); // Update the inode on disk to reflect the new link count
+    ip->nlink--; // PROJECT 4: one fewer directory entry points to this inode.
+    iupdate(ip); // PROJECT 4: flush the decremented nlink to disk immediately.
 
-    iput(ip);   // drop lookup reference
-    iput(dp);   // drop directory reference
+	// PROJECT 4: iput drops our lookup reference. If nlink==0 AND ref drops
+	// to 0 inside iput, it calls itrunc() to free data blocks and zeroes the
+	// dinode on disk — the file is completely deleted at that point.
+    iput(ip);
+    iput(dp);
 
     return 0;
 }

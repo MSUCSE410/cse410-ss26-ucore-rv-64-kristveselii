@@ -17,7 +17,10 @@ struct inode {
 	short type; // copy of disk inode
 	uint size;
 	uint addrs[NDIRECT + 1];
-	// LAB4: You may need to add link count here
+	// PROJECT 4: in-memory mirror of dinode.nlink (hard link count).
+	// Loaded from disk by ivalid(), modified by filelink/fileunlink,
+	// and flushed back to disk by iupdate(). Keeping it here avoids
+	// an extra disk read every time filestat or filelink needs the count.
 	uint nlink;
 };
 

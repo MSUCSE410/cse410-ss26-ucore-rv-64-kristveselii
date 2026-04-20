@@ -305,8 +305,12 @@ uint64 sys_close(int fd)
 	return 0;
 }
 
+// PROJECT 4: sys_fstat (syscall ID 80) — get metadata for an open file.
+// args[0] = fd:   file descriptor of the open file to query
+// args[1] = stat: user virtual address of the Stat struct to fill
+// Validates fd, looks up the file table entry, delegates to filestat()
+// which builds the Stat in kernel space and copyouts to user space.
 int sys_fstat(int fd,uint64 stat){
-	//TODO: your job is to complete the syscall
 	struct proc *p = curr_proc(); // get the current process
 
 	// Validate the file descriptor
@@ -320,15 +324,24 @@ int sys_fstat(int fd,uint64 stat){
         return -1;
     }
 
-    return filestat(f, stat); // Call the filestat function to fill the stat structure and return its result
+    return filestat(f, stat); // PROJECT 4: delegate to file.c to fill the Stat structure and copyout to user space.
 }
 
+// PROJECT 4: sys_linkat (syscall ID 37) — create a hard link.
+// args[0] = olddirfd: ignored (always AT_FDCWD = -100 per spec)
+// args[1] = oldpath:  user VA of the existing file's name string
+// args[2] = newdirfd: ignored (always AT_FDCWD per spec)
+// args[3] = newpath:  user VA of the new link name string
+// args[4] = flags:    ignored (always 0 per spec)
+// Copies both path strings from user virtual addresses into kernel buffers,
+// then delegates to filelink() which creates the directory entry and
+// increments nlink on the inode.
 int sys_linkat(int olddirfd, uint64 oldpath, int newdirfd, uint64 newpath, uint64 flags){
-	//TODO: your job is to complete the syscall
 	struct proc *p = curr_proc(); // get the current process
     char old[MAX_STR_LEN], new[MAX_STR_LEN]; // buffers to hold the old and new paths, assuming max length is MAX_STR_LEN
 
-	// Copy the old and new paths from user space to kernel space
+	// PROJECT 4: translate user virtual addresses to kernel strings.
+	// copyinstr walks the user page table to read the null-terminated path.
     if (copyinstr(p->pagetable, old, oldpath, MAX_STR_LEN) < 0) {
         return -1;
     }
@@ -337,20 +350,26 @@ int sys_linkat(int olddirfd, uint64 oldpath, int newdirfd, uint64 newpath, uint6
         return -1;
     }
 
-    return filelink(old, new); // Call the filelink function to create a new link and return its result
+    return filelink(old, new); // PROJECT 4: delegate to file.c to create the new directory entry and bump nlink.
 }
 
+// PROJECT 4: sys_unlinkat (syscall ID 35) — remove a hard link.
+// args[0] = dirfd:  ignored (always AT_FDCWD per spec)
+// args[1] = path:   user VA of the filename string to unlink
+// args[2] = flags:  ignored (always 0 per spec)
+// Copies the path string from user space, then delegates to fileunlink()
+// which removes the directory entry, decrements nlink, and (if nlink reaches
+// 0) allows iput() to free the inode and data blocks on the final ref drop.
 int sys_unlinkat(int dirfd, uint64 path, uint64 flags){
-	//TODO: your job is to complete the syscall
 	struct proc *p = curr_proc(); // get the current process
     char name[MAX_STR_LEN]; // buffer to hold the filename, assuming max length is MAX_STR_LEN
 
-	// Copy the filename from user space to kernel space
+	// PROJECT 4: translate the user virtual address to get the filename string.
     if (copyinstr(p->pagetable, name, path, MAX_STR_LEN) < 0) {
         return -1; 
     }
 
-    return fileunlink(name); // Call the fileunlink function to remove the file and return its result
+    return fileunlink(name); // PROJECT 4: delegate to file.c to remove the directory entry and decrement nlink.
 }
 
 extern char trap_page[];
@@ -406,12 +425,15 @@ void syscall()
 	case SYS_wait4:
 		ret = sys_wait(args[0], args[1]);
 		break;
+	// PROJECT 4: route sys_fstat — args: fd, user Stat*
 	case SYS_fstat:
 	    ret = sys_fstat(args[0],args[1]);
 		break;
+	// PROJECT 4: route sys_linkat — args: olddirfd, oldpath, newdirfd, newpath, flags
 	case SYS_linkat:
 	    ret = sys_linkat(args[0],args[1],args[2],args[3],args[4]);
 		break;
+	// PROJECT 4: route sys_unlinkat — args: dirfd, path, flags
 	case SYS_unlinkat:
 	    ret = sys_unlinkat(args[0],args[1],args[2]);
 		break;

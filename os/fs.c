@@ -114,7 +114,11 @@ struct inode *ialloc(uint dev, short type)
 		if (dip->type == 0) { // a free inode
 			memset(dip, 0, sizeof(*dip));
 			dip->type = type;
-			dip->nlink = 1; // new inode is linked once to its parent directory
+			// PROJECT 4: initialize nlink to 1 — every newly created file
+			// has exactly one directory entry pointing to it (the one being
+			// created right now). dirlink() will be called by create() to
+			// write that entry, but we set nlink here on the dinode itself.
+			dip->nlink = 1;
 			bwrite(bp);
 			brelse(bp);
 			return iget(dev, inum);
@@ -137,7 +141,9 @@ void iupdate(struct inode *ip)
 	dip = (struct dinode *)bp->data + ip->inum % IPB;
 	dip->type = ip->type;
 	dip->size = ip->size;
-	// LAB4: you may need to update link count here
+	// PROJECT 4: persist the updated hard link count to disk.
+	// Without this write, nlink changes made by sys_linkat / sys_unlinkat
+	// would be lost on reboot, leaving the filesystem in an inconsistent state.
 	dip->nlink = ip->nlink;
 	memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
 	bwrite(bp);
@@ -191,8 +197,13 @@ void ivalid(struct inode *ip)
 		dip = (struct dinode *)bp->data + ip->inum % IPB;
 		ip->type = dip->type;
 		ip->size = dip->size;
-		// LAB4: You may need to get lint count here
+		// PROJECT 4: load the hard link count from the on-disk dinode into
+		// the in-memory inode so filestat/filelink/fileunlink can read it
+		// without an extra disk access.
 		ip->nlink = dip->nlink;
+		// PROJECT 4: safety guard — if a file exists on disk but somehow
+		// has nlink=0 (e.g. a crash mid-unlink), treat it as 1 so iput()
+		// does not immediately free it and corrupt live data.
 		if (ip->type != 0 && ip->nlink == 0) {
 			ip->nlink = 1;
 		}
@@ -213,12 +224,18 @@ void ivalid(struct inode *ip)
 // case it has to free the inode.
 void iput(struct inode *ip)
 {
-	// LAB4: Unmark the condition and change link count variable name (nlink) if needed
+	// PROJECT 4: free inode data only when BOTH conditions hold:
+	//   (1) ref == 1 — this is the last in-memory reference (about to become 0)
+	//   (2) nlink == 0 — no directory entries point to this inode any more
+	// This is the mechanism that makes hard links correct: unlinking one name
+	// (sys_unlinkat) decrements nlink but does NOT free the file as long as
+	// another name still exists (nlink > 0). The file is only truly deleted
+	// when the last directory entry is removed AND the last fd is closed.
 	if (ip->ref == 1 && ip->valid && ip->nlink == 0) {
 		// inode has no links and no other references: truncate and free.
-		itrunc(ip);
-		ip->type = 0;
-		iupdate(ip);
+		itrunc(ip);      // PROJECT 4: free all data blocks on disk
+		ip->type = 0;    // PROJECT 4: mark dinode as free (type=0 = unused slot)
+		iupdate(ip);     // PROJECT 4: flush zeroed dinode to disk
 		ip->valid = 0;
 	}
 	ip->ref--;
@@ -434,8 +451,12 @@ int dirlink(struct inode *dp, char *name, uint inum)
 	return 0;
 }
 
-// LAB4: You may want to add dirunlink here
-// Return the inode of the root directory
+// PROJECT 4: dirunlink — remove a named directory entry from directory dp.
+// Scans dp's dirent array for an entry matching 'name', then zeroes it out
+// (setting inum=0 marks the slot as free for future dirlink calls).
+// IMPORTANT: this only removes the name→inode mapping in the directory.
+// It does NOT touch the inode itself. The caller (fileunlink) is responsible
+// for decrementing nlink on the inode and calling iput to potentially free it.
 int dirunlink(struct inode *dp, char *name)
 {
 	int off; // byte offset of the directory entry to be removed
@@ -453,15 +474,17 @@ int dirunlink(struct inode *dp, char *name)
 		if (de.inum == 0) // If the directory entry is empty, continue to the next entry
 			continue;
 		if (strncmp(name, de.name, DIRSIZ) == 0) {
-			memset(&de, 0, sizeof(de)); // Clear the directory entry by setting its name and inum to 0
-				// This effectively removes the entry from the directory
-			if (writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de)) // Write the updated (cleared) directory entry back to disk; if this fails, panic with an error message
+			// PROJECT 4: zero the entire dirent — name and inum both become 0.
+			// inum=0 is the sentinel that marks a slot as unused, allowing
+			// future dirlink calls to reclaim this slot for a new entry.
+			memset(&de, 0, sizeof(de));
+			if (writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
 				panic("dirunlink write");
 			return 0;
 		}
 	}
 
-	return -1;
+	return -1; // name not found in this directory
 }
 
 //Return the inode of the root directory

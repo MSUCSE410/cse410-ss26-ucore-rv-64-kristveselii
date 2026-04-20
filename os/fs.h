@@ -44,11 +44,16 @@ struct superblock {
 // On-disk inode structure
 struct dinode {
 	short type; // File type
+	// PROJECT 4: nlink is the hard link count — how many directory entries
+	// point to this inode. Starts at 1 when the file is created (ialloc),
+	// incremented by sys_linkat, decremented by sys_unlinkat.
+	// When nlink reaches 0 and the last in-memory ref is dropped (iput),
+	// the inode and all its data blocks are freed from disk.
 	short nlink;
 	short pad[2]; 
-	// LAB4: you can reduce size of pad array and add link count below,
-	//       or you can just regard a pad as link count.
-	//       But keep in mind that you'd better keep sizeof(dinode) unchanged
+	// PROJECT 4: nlink reuses the space formerly occupied by pad[0], keeping
+	// sizeof(dinode) unchanged. This is critical — mkfs computes block layout
+	// from this size, so changing it would corrupt the filesystem image.
 	uint size; // Size of file (bytes)
 	uint addrs[NDIRECT + 1]; // Data block addresses
 };
