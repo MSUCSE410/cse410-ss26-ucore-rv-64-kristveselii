@@ -34,12 +34,7 @@ _app_names:
     for app in apps:
         f.write("   .string \"" + app + "\"\n")
 
-    f.write(
-'''
-    .global INIT_PROC
-INIT_PROC:
-    .string \"{0}\"
-'''.format(args.INIT_PROC));
+
 
     for (idx, app) in enumerate(apps):
         f.write(
