@@ -5,6 +5,8 @@ K = os
 U = user
 F = nfs
 
+CHAPTER ?= $(shell git rev-parse --abbrev-ref HEAD | grep -oP 'ch\K[0-9]')
+
 TOOLPREFIX = riscv64-unknown-elf-
 CC = $(TOOLPREFIX)gcc
 AS = $(TOOLPREFIX)gcc
@@ -128,8 +130,6 @@ debug: build/kernel .gdbinit $(F)/fs-copy.img
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB) &
 	sleep 1
 	$(GDB)
-
-CHAPTER ?= $(shell git rev-parse --abbrev-ref HEAD | grep -oP 'ch\K[0-9]')
 
 user:
 	make -C user CHAPTER=$(CHAPTER) BASE=$(BASE)
