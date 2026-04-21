@@ -29,7 +29,7 @@ endif
 
 INIT_PROC ?= usershell
 ifeq ($(CHAPTER),8)
-INIT_PROC = ch8b_usertest
+INIT_PROC = ch8_usertest
 endif
 
 $(K)/initproc.o: $K/initproc.S
