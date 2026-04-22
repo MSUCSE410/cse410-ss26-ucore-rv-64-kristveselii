@@ -70,6 +70,7 @@ struct proc {
 	uint64 exit_code;    // Passed to the waiting parent through wait()
 	struct file *files[FD_BUFFER_SIZE];
 
+	// -------------------------------------------------------------------------
 	// PROJECT 3, STEP 4: Stride scheduling fields.
 	// priority: controlled by sys_set_priority(), default 16, minimum 2.
 	//   A higher value means more CPU time (smaller stride increment per round).
@@ -79,6 +80,7 @@ struct proc {
 	//   so processes with high priority stay near the bottom and get chosen often.
 	int priority; // priority of the process, higher means more CPU time
 	int stride; // tracks how much CPU time the process has used
+	// -------------------------------------------------------------------------
 };
 
 // PROJECT 3, STEP 5: TaskStatus and TaskInfo for sys_task_info.
@@ -115,10 +117,12 @@ int fdalloc(struct file *);
 // swtch.S
 void swtch(struct context *, struct context *);
 
+// -------------------------------------------------------------------------
 // PROJECT 3, STEP 6: spawn() — declared here, defined in proc.c.
 // Creates a child process and loads the named program directly into it.
 // Equivalent to fork() + exec() but without copying the parent's address space.
 // Called by sys_spawn() in syscall.c after copying the filename from user memory.
 int spawn(char *filename);
+// -------------------------------------------------------------------------
 
 #endif // PROC_H

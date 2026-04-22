@@ -232,6 +232,7 @@ uint64 sys_wait(int pid, uint64 va)
 	return wait(pid, code);
 }
 
+// -------------------------------------------------------------------------
 // PROJECT 3, STEP 18: sys_spawn() — syscall wrapper for spawn().
 //
 // The user calls spawn(char *name) which triggers syscall ID 400 (SYS_spawn).
@@ -252,7 +253,9 @@ uint64 sys_spawn(uint64 va)
 	}
 	return spawn(filename);
 }
+// -------------------------------------------------------------------------
 
+// -------------------------------------------------------------------------
 // PROJECT 3, STEP 19: sys_set_priority() — set this process's stride priority.
 //
 // The user calls setpriority(long long prio) which triggers syscall ID 140 (SYS_setpriority).
@@ -272,6 +275,7 @@ uint64 sys_set_priority(long long prio){
 	p->priority = prio; // update process priority
     return prio;
 }
+// -------------------------------------------------------------------------
 
 
 extern char trap_page[];
@@ -348,11 +352,13 @@ void syscall()
 		ret = sys_munmap(args[0], args[1]);
 		break;
 
+	// -------------------------------------------------------------------------
 	// PROJECT 3, STEP 21: Dispatch SYS_setpriority (ID 140) to sys_set_priority().
 	// args[0] holds the priority value (long long prio) passed by the user program.
 	case SYS_setpriority:
 		ret = sys_set_priority(args[0]);
 		break;
+	// -------------------------------------------------------------------------
 
 	default:
 		ret = -1;

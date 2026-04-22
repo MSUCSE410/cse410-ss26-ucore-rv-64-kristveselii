@@ -102,6 +102,7 @@ found:
 	p->context.ra = (uint64)usertrapret;
 	p->context.sp = p->kstack + KSTACK_SIZE;
 
+	// -------------------------------------------------------------------------
 	// PROJECT 3, STEP 8: Initialize stride scheduling fields.
 	// priority = 16: default gives equal share with all other default processes.
 	// stride = 0: spec requires all processes start at zero so the first round
@@ -109,6 +110,7 @@ found:
 	p->priority = 16; // default priority
 	p->stride = 0; // default stride, starts at 0 
 	return p;
+	// -------------------------------------------------------------------------
 }
 
 // Scheduler never returns.  It loops, doing:
@@ -135,6 +137,7 @@ void scheduler()
 {
 	struct proc *p;
 	for (;;) {
+		// -------------------------------------------------------------------------
 		// stride scheduling: picking the process with the smallest stride
 		struct proc *best = 0;
 		//*int has_proc = 0;
@@ -156,11 +159,14 @@ void scheduler()
 				}
 			}
 		}
+		
 
 		if (best == 0) {
 			panic("all app are over!\n");
 		}
+		// -------------------------------------------------------------------------
 
+		// -------------------------------------------------------------------------
 		// PROJECT 3, STEP 11: Increment stride BEFORE running the process.
 		// stride += BIG_STRIDE / priority
 		// The process "pays" for its upcoming time slice up front.
@@ -173,6 +179,7 @@ void scheduler()
 		current_proc = best;
 		swtch(&idle.context, &best->context);
 		// Execution resumes here after the process yields, blocks, or exits.
+		// -------------------------------------------------------------------------
 		
 		/*
 				has_proc = 1;
@@ -336,7 +343,7 @@ void exit(int code)
 	}
 	sched();
 }
-
+// -------------------------------------------------------------------------
 // PROJECT 3, STEP 15: spawn() — create a child and load a program into it directly.
 //
 // spawn() is equivalent to fork() + exec() but avoids copying the parent's
@@ -375,4 +382,5 @@ int spawn(char *filename)
 	}
 
 	return np->pid; // return child PID
+	// -------------------------------------------------------------------------
 }
