@@ -114,6 +114,7 @@ struct inode *ialloc(uint dev, short type)
 		if (dip->type == 0) { // a free inode
 			memset(dip, 0, sizeof(*dip));
 			dip->type = type;
+			// -----
 			// PROJECT 4: initialize nlink to 1 — every newly created file
 			// has exactly one directory entry pointing to it (the one being
 			// created right now). dirlink() will be called by create() to
@@ -122,6 +123,7 @@ struct inode *ialloc(uint dev, short type)
 			bwrite(bp);
 			brelse(bp);
 			return iget(dev, inum);
+			// ----
 		}
 		brelse(bp);
 	}
@@ -141,6 +143,7 @@ void iupdate(struct inode *ip)
 	dip = (struct dinode *)bp->data + ip->inum % IPB;
 	dip->type = ip->type;
 	dip->size = ip->size;
+	// ----
 	// PROJECT 4: persist the updated hard link count to disk.
 	// Without this write, nlink changes made by sys_linkat / sys_unlinkat
 	// would be lost on reboot, leaving the filesystem in an inconsistent state.

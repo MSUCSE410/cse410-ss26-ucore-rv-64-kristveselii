@@ -49,8 +49,10 @@ struct dinode {
 	// incremented by sys_linkat, decremented by sys_unlinkat.
 	// When nlink reaches 0 and the last in-memory ref is dropped (iput),
 	// the inode and all its data blocks are freed from disk.
+	// --------
 	short nlink;
 	short pad[2]; 
+	// --
 	// PROJECT 4: nlink reuses the space formerly occupied by pad[0], keeping
 	// sizeof(dinode) unchanged. This is critical — mkfs computes block layout
 	// from this size, so changing it would corrupt the filesystem image.
