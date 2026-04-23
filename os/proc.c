@@ -363,11 +363,14 @@ void exit(int code)
 // On any failure return -1 so the user program can detect the error.
 int spawn(char *filename)
 {
+	// look up the program in the embedded app table
 	int id = get_id_by_name(filename);
 	if (id < 0){
 		return -1; // invalid program name
 	}
 	struct proc *parent = curr_proc();
+	// get a fresh proc slot with a new page table, PID,
+	// and default stride/priority fields
 	struct proc *np = allocproc();
 	if (np == NULL){
 		return -1;

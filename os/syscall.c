@@ -243,11 +243,12 @@ uint64 sys_wait(int pid, uint64 va)
 //   2. Delegates to spawn() in proc.c for the actual process creation and load.
 uint64 sys_spawn(uint64 va)
 {
-	// TODO: your job is to complete the sys call
+	// Get curr process
 	struct proc *p = curr_proc();
 	char filename[200];
 
 	// Copy the filename from user space to kernel space
+	// Delegate to proc.c
 	if (copyinstr(p->pagetable, filename, va, 200) < 0){
 		return -1;
 	}
@@ -265,8 +266,10 @@ uint64 sys_spawn(uint64 va)
 // Effect: the stride scheduler computes pass = BIG_STRIDE / priority each round,
 // so a higher prio means a smaller pass and more frequent selection.
 uint64 sys_set_priority(long long prio){
-    // TODO: your job is to complete the sys call
+    // Get the currently running process
 	struct proc *p = curr_proc();
+
+	// Return error if no process is currently running (should never happen in practice)
 	if (p == 0) return -1;
 	
 	// Priority must be >= 2 
